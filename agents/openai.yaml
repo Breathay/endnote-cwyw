@@ -1,0 +1,4 @@
+interface:
+  display_name: "EndNote 建库与 Word 引文"
+  short_description: "建立 EndNote 文献库并在 Word 中插入可更新引文与参考文献表"
+  default_prompt: "使用 $endnote-cwyw 将参考文献导入 EndNote，并在新版本 Word 中通过 CWYW 插入可更新引文。"

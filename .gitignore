@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.venv/
+.test-output/
+work/
+dist/
+*.docx
+*.pdf
+*.enl
+*.enlx
+*.eni
+*.ens
+*.Data/
+.env
+.env.*
+!.env.example

@@ -1,0 +1,26 @@
+{
+  "records": [
+    {
+      "id": "paper-a",
+      "title": "A synthetic example of optical design",
+      "authors": ["Example, Alice", "Example, Bob"],
+      "year": "2026",
+      "journal": "Synthetic Journal",
+      "volume": "1",
+      "pages": "10-20",
+      "doi": "",
+      "notes": "Fictional example for the data contract; not a real citation."
+    },
+    {
+      "id": "paper-b",
+      "title": "A second synthetic article",
+      "authors": ["Demonstration, Charlie"],
+      "year": "2025",
+      "journal": "Synthetic Journal",
+      "volume": "2",
+      "pages": "21-30",
+      "doi": "",
+      "notes": "Fictional example for offline testing."
+    }
+  ]
+}
