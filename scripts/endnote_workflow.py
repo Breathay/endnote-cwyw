@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Portable preparation and read-only verification for native EndNote CWYW.
+"""Prepare references and format EndNote citations in a Word manuscript.
 
-This module does not create native EndNote fields or write EndNote databases.
-Only EndNote's own importer and Word CWYW perform those operations.
+Use probe to check the Word connection, or format to update a prepared document
+with the installed EndNote add-in. These two commands require Windows.
 """
 from __future__ import annotations
 
@@ -11,9 +11,11 @@ import base64
 from collections import Counter
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import sqlite3
+import subprocess
 import sys
 import unicodedata
 import xml.etree.ElementTree as ET
@@ -500,6 +502,48 @@ def verify_docx(document, audit_path=None, expected_citations=None, expected_ref
             "numbering_checked":numbering_checked,"style":style}
 
 
+def run_word(action, document=None, style_path=None, expected_citations=None,
+             expected_references=None, timeout_seconds=60, pdf_path=None):
+    """Call the existing CWYW bridge using Windows PowerShell 5.1."""
+    require(sys.platform == 'win32', 'Word citation formatting requires Windows with desktop Word and EndNote installed.')
+    require(action in ('Probe', 'Format'), 'Unknown Word action')
+    require(5 <= timeout_seconds <= 300, 'The completion timeout must be between 5 and 300 seconds.')
+    for value in (expected_citations, expected_references):
+        require(value is None or value >= 0, 'Expected citation and reference counts must be non-negative.')
+    if action == 'Format':
+        require(document and style_path, 'Formatting requires a document and an installed .ens style file.')
+    system_root = os.environ.get('SystemRoot') or os.environ.get('WINDIR')
+    require(system_root, 'Windows PowerShell could not be located: SystemRoot and WINDIR are unset.')
+    engine = Path(system_root) / 'System32/WindowsPowerShell/v1.0/powershell.exe'
+    require(engine.is_file(), 'Windows PowerShell 5.1 was not found: ' + str(engine))
+    bridge = Path(__file__).with_name('endnote_word.ps1').read_text(encoding='utf-8-sig')
+    parameters = {
+        'Action': action, 'Document': document, 'StylePath': style_path,
+        'ExpectedCitations': expected_citations, 'ExpectedReferences': expected_references,
+        'TimeoutSeconds': timeout_seconds, 'PdfPath': pdf_path,
+    }
+    # All values are PowerShell literals; paths may contain apostrophes, Unicode,
+    # dollar signs or backticks. EncodedCommand also avoids command-line quoting
+    # differences between Windows shells without changing execution policy.
+    arguments = ''.join(" -" + key + " '" + str(value).replace("'", "''") + "'"
+                        for key, value in parameters.items() if value is not None)
+    command = '& {\n' + bridge + '\n}' + arguments
+    encoded = base64.b64encode(command.encode('utf-16-le')).decode('ascii')
+    completed = subprocess.run(
+        [str(engine), '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded],
+        capture_output=True, encoding='utf-8-sig', errors='replace', check=False,
+    )
+    require(completed.returncode == 0,
+            completed.stderr.strip() or completed.stdout.strip() or 'The Word command failed. Check Word for an open dialog before trying again.')
+    try:
+        result = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        raise ValueError('The Word command returned an unexpected response: ' + completed.stdout.strip()) from exc
+    require(isinstance(result, dict) and result.get('action') == action.lower(),
+            'The Word command did not return the requested result.')
+    return result
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     sub=parser.add_subparsers(dest='command',required=True)
@@ -508,6 +552,16 @@ def main():
     p=sub.add_parser('map');p.add_argument('records');p.add_argument('--library',required=True);p.add_argument('--output',required=True);p.add_argument('--missing-xml')
     p=sub.add_parser('prepare');p.add_argument('source');p.add_argument('--output',required=True);p.add_argument('--mapping',required=True);p.add_argument('--plan',required=True);p.add_argument('--audit',required=True)
     p=sub.add_parser('verify');p.add_argument('document');p.add_argument('--audit');p.add_argument('--expected-citations',type=int);p.add_argument('--expected-references',type=int);p.add_argument('--output')
+    p=sub.add_parser('probe',help='Check the running Word add-in without changing a document')
+    p.add_argument('--style',help='Optional installed .ens file to check')
+    p=sub.add_parser('format',help='Update a prepared Word document using EndNote CWYW')
+    p.add_argument('document')
+    p.add_argument('--style',required=True,help='Path to the installed .ens output style')
+    p.add_argument('--expected-citations',type=int)
+    p.add_argument('--expected-references',type=int)
+    p.add_argument('--timeout-seconds',type=int,default=60,
+                   help='Wait 5-300 seconds for completion after the Word macro returns (default: 60)')
+    p.add_argument('--pdf',help='Also export the saved document as PDF')
     args=parser.parse_args()
     try:
         if args.command=='inspect': result=inspect_docx(args.document);write_json(args.output,result);result={k:v for k,v in result.items() if k not in ('paragraphs','citations','media_parts')}
@@ -518,6 +572,9 @@ def main():
                 export_xml([r for r in rows if r['id'] in result['missing']],args.missing_xml)
             result={'mapped':len(result['mappings']),'missing':result['missing'],'conflicts':result['conflicts'],'output':args.output}
         elif args.command=='prepare':result=prepare_docx(args.source,args.output,args.mapping,args.plan,args.audit)
+        elif args.command=='probe':result=run_word('Probe',style_path=args.style)
+        elif args.command=='format':
+            result=run_word('Format',args.document,args.style,args.expected_citations,args.expected_references,args.timeout_seconds,args.pdf)
         else:
             result=verify_docx(args.document,args.audit,args.expected_citations,args.expected_references)
             if args.output:write_json(args.output,result)

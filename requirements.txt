@@ -1,3 +1,0 @@
-# Inspection, XML export, mapping and verification use the Python standard library.
-# Prefix-safe editing of modern Office DOCX files uses lxml.
-lxml>=5.0

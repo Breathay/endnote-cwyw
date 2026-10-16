@@ -1,13 +1,18 @@
 """Offline contract tests. Synthetic XML fields test the parser only, not CWYW."""
 import base64
+import contextlib
 from copy import deepcopy
 import hashlib
 import importlib.util
+import io
 import json
+import os
 from pathlib import Path
 import sqlite3
+import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 import xml.etree.ElementTree as ET
 from zipfile import ZipFile
 
@@ -219,6 +224,82 @@ class WorkflowTests(unittest.TestCase):
         from lxml import etree as LE
         with ZipFile(out) as z:root=LE.fromstring(z.read('word/document.xml'))
         self.assertEqual(root.nsmap['w14'],'http://schemas.microsoft.com/office/word/2010/wordml')
+
+
+class WordCommandTests(unittest.TestCase):
+    def test_requires_windows_before_launching_a_process(self):
+        with patch.object(m.sys, 'platform', 'linux'), patch.object(m.subprocess, 'run') as launch:
+            with self.assertRaisesRegex(ValueError, 'requires Windows'):
+                m.run_word('Probe')
+            launch.assert_not_called()
+
+    def test_rejects_invalid_parameters_before_launch(self):
+        with patch.object(m.sys, 'platform', 'win32'), patch.object(m.subprocess, 'run') as launch:
+            for arguments in [dict(timeout_seconds=0), dict(expected_citations=-1), dict(expected_references=-2)]:
+                with self.assertRaises(ValueError):m.run_word('Probe', **arguments)
+            with self.assertRaises(ValueError):m.run_word('Format')
+            launch.assert_not_called()
+
+    def native_environment(self):
+        folder = tempfile.TemporaryDirectory();self.addCleanup(folder.cleanup)
+        engine = Path(folder.name) / 'System32/WindowsPowerShell/v1.0/powershell.exe'
+        engine.parent.mkdir(parents=True);engine.touch()
+        return folder.name, engine
+
+    def test_format_quotes_paths_and_forwards_all_options(self):
+        root, engine = self.native_environment()
+        document = "C:/论文/O'Brien $draft `1.docx"
+        style = "C:/Styles/O'Brien.ens"
+        completed = m.subprocess.CompletedProcess([], 0, '{"action":"format","saved":true}', '')
+        with patch.object(m.sys, 'platform', 'win32'), patch.dict(os.environ, {'SystemRoot':root}), \
+                patch.object(m.subprocess, 'run', return_value=completed) as launch:
+            self.assertTrue(m.run_word('Format', document, style, 25, 18, 90, 'work/final.pdf')['saved'])
+        arguments = launch.call_args.args[0]
+        self.assertEqual(arguments[:4], [str(engine), '-NoProfile', '-NonInteractive', '-EncodedCommand'])
+        command = base64.b64decode(arguments[4]).decode('utf-16-le')
+        self.assertTrue(command.endswith(" -Action 'Format' -Document 'C:/论文/O''Brien $draft `1.docx'"
+                                         " -StylePath 'C:/Styles/O''Brien.ens' -ExpectedCitations '25'"
+                                         " -ExpectedReferences '18' -TimeoutSeconds '90' -PdfPath 'work/final.pdf'"))
+        self.assertNotIn('shell', launch.call_args.kwargs)
+
+    def test_native_errors_are_reported_without_retry(self):
+        root, _ = self.native_environment()
+        completed = m.subprocess.CompletedProcess([], 1, '', 'Enable the EndNote add-in in Word.')
+        with patch.object(m.sys, 'platform', 'win32'), patch.dict(os.environ, {'SystemRoot':root}), \
+                patch.object(m.subprocess, 'run', return_value=completed) as launch:
+            with self.assertRaisesRegex(ValueError, 'Enable the EndNote'):
+                m.run_word('Probe')
+            self.assertEqual(launch.call_count, 1)
+
+    def test_unexpected_native_response_is_rejected(self):
+        root, _ = self.native_environment()
+        with patch.object(m.sys, 'platform', 'win32'), patch.dict(os.environ, {'SystemRoot':root}):
+            for output in ['not JSON', '[]', '{"action":"format"}']:
+                completed = m.subprocess.CompletedProcess([], 0, output, '')
+                with patch.object(m.subprocess, 'run', return_value=completed), self.assertRaises(ValueError):
+                    m.run_word('Probe')
+
+
+class SkillInstallTests(unittest.TestCase):
+    def test_upgrade_copies_uv_files_and_backs_up_legacy_requirements(self):
+        spec=importlib.util.spec_from_file_location('install_skill',ROOT/'scripts/install_skill.py')
+        installer=importlib.util.module_from_spec(spec);spec.loader.exec_module(installer)
+        with tempfile.TemporaryDirectory() as folder:
+            codex_home=Path(folder);destination=codex_home/'skills/endnote-cwyw'
+            destination.mkdir(parents=True)
+            (destination/'requirements.txt').write_text('lxml>=5.0\n',encoding='utf-8')
+            (destination/'.venv').mkdir()
+            (destination/'.venv/cache').write_bytes(b'test runtime cache')
+            with patch.dict(os.environ, {'CODEX_HOME':folder}), \
+                    patch.object(sys, 'argv', ['install_skill.py','--replace']), contextlib.redirect_stdout(io.StringIO()):
+                installer.main()
+            for name in ['pyproject.toml','uv.lock','.python-version']:
+                self.assertEqual((destination/name).read_bytes(),(ROOT/name).read_bytes())
+            self.assertFalse((destination/'requirements.txt').exists())
+            backups=list((codex_home/'skill-backups').glob('*/requirements.txt'))
+            self.assertEqual(len(backups),1)
+            self.assertEqual(backups[0].read_text(encoding='utf-8'),'lxml>=5.0\n')
+            self.assertFalse((backups[0].parent/'.venv').exists())
 
 
 if __name__=='__main__':unittest.main()
