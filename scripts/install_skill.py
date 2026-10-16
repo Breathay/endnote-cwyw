@@ -27,16 +27,17 @@ def main():
         shutil.copytree(target,backup,ignore=shutil.ignore_patterns('.venv','__pycache__','*.pyc'))
         print('Backup:',backup)
     target.mkdir(parents=True,exist_ok=True)
-    for name in ['SKILL.md','LICENSE','README.md','README.zh-CN.md','pyproject.toml','uv.lock','.python-version','agents','scripts','references','examples']:
+    for name in ['SKILL.md','LICENSE','README.md','README.zh-CN.md','requirements.txt','agents','scripts','references','examples']:
         path=source/name
         if path.is_dir():
             shutil.copytree(path,target/name,dirs_exist_ok=True,ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
         else:
             shutil.copy2(path,target/name)
-    # Older releases installed this file. The backup above retains it when
-    # updating; the installed skill now uses pyproject.toml and uv.lock.
-    legacy_requirements=target/'requirements.txt'
-    if legacy_requirements.is_file():legacy_requirements.unlink()
+    # Earlier releases installed uv project files. Keep them in the backup,
+    # while the updated skill uses requirements.txt with the available Python.
+    for name in ['pyproject.toml','uv.lock','.python-version']:
+        legacy=target/name
+        if legacy.is_file():legacy.unlink()
     print('Installed:',target)
 
 

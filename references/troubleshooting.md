@@ -48,7 +48,7 @@ Under a restrictive script-file policy, run the reviewed source as command text.
 The COM add-in can report `Connect=true` while its `.Object` is null. Use the
 installed `EndNote Cwyw.dotm` and real `ENFormatBibliography` macro. Do not invent
 `EndNoteFormatBibliography`, call `*Dlg` macros, or create fake ADDIN fields.
-`uv run scripts/endnote_workflow.py probe` shows the connection and loaded
+`python scripts/endnote_workflow.py probe` shows the connection and loaded
 templates without changing Word. A document copy is needed to test formatting.
 
 ## Macro returned, but the saved DOCX has no bibliography

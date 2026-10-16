@@ -32,12 +32,14 @@ workspace dependency loader and follow the available documents skill's
 artifact-operation and render/inspect requirements. The helper CLI is portable;
 do not assume a particular local Python executable or package version.
 
-Run `uv sync --locked` from the repository or installed skill directory, then
-use `uv run scripts/endnote_workflow.py ...` or `uv run scripts/install_skill.py`.
-Dependencies are defined in `pyproject.toml` and pinned in `uv.lock`. When a
-bundled Python is required by the host, select it with
-`uv sync --locked --python <resolved-python-path>` and use the same interpreter
-with `uv run --python <resolved-python-path> ...`.
+Use an available Python 3.10+ interpreter to run the helper scripts. Before
+editing a DOCX, check whether that interpreter can import `lxml` version 5 or
+newer. Reuse the available document runtime when it already has the dependency.
+If needed, install `requirements.txt` using that interpreter's `-m pip` in an
+appropriate managed environment. Handle these checks as part of the task;
+users should not have to run setup commands before requesting citation work.
+Neither uv nor a repository `.venv` is required. Run commands from the skill
+directory, or use absolute paths to its scripts and requirements file.
 
 ## Reference details
 
@@ -82,8 +84,9 @@ The installed output-style file must exist. Use its exact name; preserve an
 existing document's `EN.Layout` preferences except for a requested style change.
 Do not redistribute a user's custom `.ens` file with this skill.
 
-Run `uv run scripts/endnote_workflow.py probe` to inspect the live connection
-without modifying Word. Use `format <new-output.docx> --style <installed.ens>`
+Run `python scripts/endnote_workflow.py probe` with the resolved interpreter
+to inspect the live connection without modifying Word. Use
+`format <new-output.docx> --style <installed.ens>`
 only on the authorized new output. Both commands call `scripts/endnote_word.ps1`,
 which uses Windows PowerShell 5.1 for Word COM and the real macro
 `ENFormatBibliography`. It never quits the user's applications.

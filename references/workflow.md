@@ -14,11 +14,16 @@ another version, check the connection and try a few citations in a document
 copy before processing the full manuscript. Choose the installed output style
 that the manuscript needs, including a custom `.ens` style if requested.
 
-Run `uv sync --locked` from the repository or installed skill directory before
-using the commands below. `pyproject.toml` declares the dependencies, `uv.lock`
-records the resolved versions, and `.python-version` selects Python 3.12 by
-default. Python 3.10+ is supported. To use a particular Python installation,
-add `--python <path-to-python>` to both `uv sync` and `uv run`.
+The commands below are for Codex and anyone running individual steps manually.
+Use an available Python 3.10+ interpreter; `python` stands for that interpreter
+in the examples. For DOCX editing, check for `lxml>=5.0` first and reuse the
+document runtime if it already provides it. Install missing dependencies with
+`python -m pip install -r requirements.txt` in an appropriate managed environment.
+uv and a repository virtual environment are optional.
+
+For a manual skill installation, run `python scripts/install_skill.py` from the
+repository directory. To update an existing installation, add `--replace`;
+the installer backs up the old skill before updating it.
 
 Before editing, record source and intended output paths, library, existing live
 citations, requested style and any caption changes. Infer these from the user's
@@ -28,8 +33,8 @@ Do not restart the user's Word or EndNote to discover paths.
 ## 1. Inspect
 
 ```powershell
-uv run scripts/endnote_workflow.py inspect manuscript.docx --output work/inspection.json
-uv run scripts/endnote_workflow.py probe
+python scripts/endnote_workflow.py inspect manuscript.docx --output work/inspection.json
+python scripts/endnote_workflow.py probe
 ```
 
 The inspection includes paragraph indexes/text, source hash, field inventories,
@@ -78,7 +83,7 @@ number of times. Avoid fetching all metadata again on the next retry.
 ## 3. Reconcile and import only missing references
 
 ```powershell
-uv run scripts/endnote_workflow.py map work/records.json --library Library.enl --output work/mapping-before.json --missing-xml work/missing.xml
+python scripts/endnote_workflow.py map work/records.json --library Library.enl --output work/mapping-before.json --missing-xml work/missing.xml
 ```
 
 `map` matches a unique DOI first, then an exact normalized title and year.
@@ -99,7 +104,7 @@ few representative records, including Unicode authors and a preprint, before
 importing a large set.
 
 ```powershell
-uv run scripts/endnote_workflow.py map work/records.json --library Library.enl --output work/mapping.json
+python scripts/endnote_workflow.py map work/records.json --library Library.enl --output work/mapping.json
 ```
 
 Proceed only when `missing` and `conflicts` are empty. These are the actual IDs
@@ -133,7 +138,7 @@ paragraph is removed, do not also replace text in it. Convert ranges such as
 or correction qualifiers separate from the temporary citation.
 
 ```powershell
-uv run scripts/endnote_workflow.py prepare manuscript.docx --output manuscript-next.docx --mapping work/mapping.json --plan work/plan.json --audit work/prepare-audit.json
+python scripts/endnote_workflow.py prepare manuscript.docx --output manuscript-next.docx --mapping work/mapping.json --plan work/plan.json --audit work/prepare-audit.json
 ```
 
 The helper refuses to overwrite the source or any existing output. It rejects
@@ -149,7 +154,7 @@ The prepared document is not finished. Its placeholders resemble
 Ensure the target library is open in EndNote and the style file exists.
 
 ```powershell
-uv run scripts/endnote_workflow.py format manuscript-next.docx --style 'C:/path/to/installed/Style.ens' --expected-citations 25 --expected-references 18 --pdf work/final.pdf
+python scripts/endnote_workflow.py format manuscript-next.docx --style 'C:/path/to/installed/Style.ens' --expected-citations 25 --expected-references 18 --pdf work/final.pdf
 ```
 
 `--expected-citations` counts groups, not individual cited papers. `--expected-references`
@@ -166,7 +171,7 @@ inspect that dialog before trying the command again.
 ## 6. Verify and render
 
 ```powershell
-uv run scripts/endnote_workflow.py verify manuscript-next.docx --audit work/prepare-audit.json --expected-citations 25 --expected-references 18 --output work/verification.json
+python scripts/endnote_workflow.py verify manuscript-next.docx --audit work/prepare-audit.json --expected-citations 25 --expected-references 18 --output work/verification.json
 ```
 
 For an already formatted manuscript with no edit plan, omit `--audit` and use
@@ -182,17 +187,28 @@ Word PDF and inspect every page. A non-empty PDF or extracted text is not a
 visual check. After a small final edit, compare rendered-page hashes and inspect
 changed pages again. Deliver only requested final artifacts, keeping QA internal.
 
+## Optional uv usage
+
+If uv is already part of your setup, it can read the same requirements file:
+
+```powershell
+uv run --no-project --with-requirements requirements.txt python scripts/endnote_workflow.py --help
+```
+
+This is an alternative to using an existing Python environment; there is no
+need to initialize a uv project or create a `.venv` in the skill directory.
+
 ## Running the tests
 
 From the repository directory:
 
 ```powershell
-uv sync --locked
-uv run --locked python -B -m unittest discover -s tests -v
+python -m pip install -r requirements.txt
+python -B -m unittest discover -s tests -v
 ```
 
 Tests use fictional references and temporary documents. They do not edit an
-open manuscript or personal EndNote library. CI also checks the uv entry points
+open manuscript or personal EndNote library. CI also checks the command entry points
 on Windows and Linux. Changes to Word formatting still need a trial on a copy
 with Word and EndNote installed, followed by a page-by-page visual check.
 
@@ -203,7 +219,7 @@ with Word and EndNote installed, followed by a page-by-page visual check.
 - [Native Word CWYW instructions](https://docs.endnote.com/docs/endnote/2025/v1/windows/en/content/09word/basic_instructions1.htm)
 - [Clarivate RSServices API background](https://docs.endnote.com/docs/endnote/2025/v1/windows/en/content/appendices/apis_and_plug-ins.htm)
 - [Open-source macro implementation reference](https://github.com/felimet/endnote-for-word)
-- [Working with uv projects](https://docs.astral.sh/uv/guides/projects/)
+- [Running scripts with uv](https://docs.astral.sh/uv/guides/scripts/)
 
 The included tools were written for this project. These links explain the
 formats and application interfaces they use.

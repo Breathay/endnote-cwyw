@@ -281,25 +281,27 @@ class WordCommandTests(unittest.TestCase):
 
 
 class SkillInstallTests(unittest.TestCase):
-    def test_upgrade_copies_uv_files_and_backs_up_legacy_requirements(self):
+    def test_upgrade_restores_requirements_and_backs_up_uv_files(self):
         spec=importlib.util.spec_from_file_location('install_skill',ROOT/'scripts/install_skill.py')
         installer=importlib.util.module_from_spec(spec);spec.loader.exec_module(installer)
         with tempfile.TemporaryDirectory() as folder:
             codex_home=Path(folder);destination=codex_home/'skills/endnote-cwyw'
             destination.mkdir(parents=True)
-            (destination/'requirements.txt').write_text('lxml>=5.0\n',encoding='utf-8')
+            legacy_files=['pyproject.toml','uv.lock','.python-version']
+            for name in legacy_files:
+                (destination/name).write_text('old uv configuration\n',encoding='utf-8')
             (destination/'.venv').mkdir()
             (destination/'.venv/cache').write_bytes(b'test runtime cache')
             with patch.dict(os.environ, {'CODEX_HOME':folder}), \
                     patch.object(sys, 'argv', ['install_skill.py','--replace']), contextlib.redirect_stdout(io.StringIO()):
                 installer.main()
-            for name in ['pyproject.toml','uv.lock','.python-version']:
-                self.assertEqual((destination/name).read_bytes(),(ROOT/name).read_bytes())
-            self.assertFalse((destination/'requirements.txt').exists())
-            backups=list((codex_home/'skill-backups').glob('*/requirements.txt'))
+            self.assertEqual((destination/'requirements.txt').read_bytes(),(ROOT/'requirements.txt').read_bytes())
+            for name in legacy_files:self.assertFalse((destination/name).exists())
+            backups=list((codex_home/'skill-backups').iterdir())
             self.assertEqual(len(backups),1)
-            self.assertEqual(backups[0].read_text(encoding='utf-8'),'lxml>=5.0\n')
-            self.assertFalse((backups[0].parent/'.venv').exists())
+            for name in legacy_files:
+                self.assertEqual((backups[0]/name).read_text(encoding='utf-8'),'old uv configuration\n')
+            self.assertFalse((backups[0]/'.venv').exists())
 
 
 if __name__=='__main__':unittest.main()

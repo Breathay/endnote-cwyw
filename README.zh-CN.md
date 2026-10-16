@@ -15,31 +15,18 @@
 EndNote 的 Cite While You Write（CWYW）插件。准备好论文、要使用的文献库，
 以及已安装的期刊格式；自定义 `.ens` 格式也可以使用。
 
-安装技能需要 Git 和 [uv](https://docs.astral.sh/uv/getting-started/installation/)。
-项目使用 `pyproject.toml` 管理依赖，`uv.lock` 记录依赖版本。
-下面的命令会准备所需的 Python 和依赖。
-
 ## 安装
 
-在终端中运行：
+把仓库链接发给 Codex，让它帮你安装：
 
-```powershell
-git clone https://github.com/Breathay/endnote-cwyw.git
-cd endnote-cwyw
-uv sync --locked
-uv run scripts/install_skill.py
-```
+> 请从 https://github.com/Breathay/endnote-cwyw 安装 endnote-cwyw 技能，
+> 放到我的个人技能目录中。
 
-默认安装到 `~/.codex/skills/endnote-cwyw`。如果设置了 `CODEX_HOME`，
-则安装到该目录下的 `skills/endnote-cwyw`。
+Python 环境和依赖由 Codex 检查，已有合适环境时直接使用，缺少时再补齐。
+不需要先安装 uv 或手动创建虚拟环境。
 
-更新时，在仓库目录中运行以下命令。安装程序会先备份已安装的旧版技能。
-
-```powershell
-git pull --ff-only
-uv sync --locked
-uv run scripts/install_skill.py --replace
-```
+已安装过的用户可以直接让 Codex 更新这个技能。更新前会备份旧版。
+需要手动安装或运行命令时，可查看[详细使用说明](references/workflow.md)。
 
 ## 怎么使用
 
@@ -56,44 +43,6 @@ uv run scripts/install_skill.py --replace
 技能会先核对库中已有的文献，再导入缺少的条目；随后在论文副本中插入引用，
 由 Word 的 EndNote 插件生成编号和参考文献表，最后检查引用是否对应、图片和
 正文是否完整。遇到同名文献、重复记录或信息不一致时，会先核实再继续。
-
-## 用 uv 在终端中运行
-
-通常直接让 Codex 使用技能即可。需要自己检查文档或运行某一步时，
-也可以在仓库目录中使用以下命令。
-
-查看命令和参数：
-
-```powershell
-uv run scripts/endnote_workflow.py --help
-```
-
-检查 Word 中的插件连接；这一步不会修改文档：
-
-```powershell
-uv run scripts/endnote_workflow.py probe
-```
-
-检查一份论文中已有的引用：
-
-```powershell
-uv run scripts/endnote_workflow.py inspect manuscript.docx --output work/inspection.json
-```
-
-对已经完成文献匹配、写入临时引文的新版本，调用插件生成正式引用：
-
-```powershell
-uv run scripts/endnote_workflow.py format manuscript-next.docx --style 'C:/path/to/Style.ens'
-uv run scripts/endnote_workflow.py verify manuscript-next.docx
-```
-
-`format` 需要 Windows、Word、EndNote 和已打开的目标文献库。
-它处理的是已经准备好的论文，不会自动判断原稿中每一处手写编号的含义。
-从整理文献到生成引用的完整步骤和文件示例见[详细使用说明](references/workflow.md)。
-
-`.python-version` 默认选择 Python 3.12，也支持 Python 3.10 及以上版本。
-已有 Python 环境时，可以用 `uv sync --locked --python <Python路径>` 选择它。
-之后运行命令时，也在 `uv run` 后加上 `--python <Python路径>`。
 
 ## 常见问题
 
@@ -112,7 +61,7 @@ uv run scripts/endnote_workflow.py verify manuscript-next.docx
 
 **插件没有连接，或者引用没有更新怎么办？**
 
-先运行 `probe` 检查连接，再查看[问题处理](references/troubleshooting.md)。
+让 Codex 检查 Word 与 EndNote 的连接即可。具体处理方法见[问题处理](references/troubleshooting.md)。
 
 ## 许可
 

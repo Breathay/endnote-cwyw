@@ -1,0 +1,2 @@
+# Needed when editing modern Word documents; the other helpers use the standard library.
+lxml>=5.0

@@ -17,33 +17,20 @@ You need Windows, desktop Microsoft Word and EndNote, with the Cite While You
 Write (CWYW) add-in enabled in Word. Have your manuscript, target EndNote library
 and installed output style ready. Custom `.ens` styles work too.
 
-To install the skill, you also need Git and
-[uv](https://docs.astral.sh/uv/getting-started/installation/). The `uv run`
-commands below set up Python and the required dependencies for you. Dependencies
-are declared in `pyproject.toml`, with their versions recorded in `uv.lock`.
-
 ## Install
 
-Run these commands in a terminal:
+Give Codex the repository link and ask it to install the skill:
 
-```powershell
-git clone https://github.com/Breathay/endnote-cwyw.git
-cd endnote-cwyw
-uv sync --locked
-uv run scripts/install_skill.py
-```
+> Install the endnote-cwyw skill from https://github.com/Breathay/endnote-cwyw
+> in my personal skills directory.
 
-The default location is `~/.codex/skills/endnote-cwyw`. If you have set
-`CODEX_HOME`, the installer uses its `skills/endnote-cwyw` directory instead.
+Codex checks for a suitable Python environment and reuses it when available,
+installing missing dependencies as needed. You do not need to install uv or
+create a virtual environment yourself.
 
-To update, run the following from the repository directory. The installer backs
-up your previously installed skill first.
-
-```powershell
-git pull --ff-only
-uv sync --locked
-uv run scripts/install_skill.py --replace
-```
+If the skill is already installed, ask Codex to update it. The previous version
+is backed up first. For manual installation or individual commands, see the
+[detailed workflow](references/workflow.md).
 
 ## Use it in Codex
 
@@ -63,47 +50,6 @@ The skill checks which references are already in your library and imports the
 missing ones. It then prepares a manuscript copy, uses Word's EndNote add-in to
 generate the citations and bibliography, and checks the result. Duplicate
 records or conflicting reference details are resolved before formatting.
-
-## Run with uv
-
-Most users can let Codex handle the steps. If you want to inspect a document or
-run a step yourself, use these commands from the repository directory.
-
-See the available commands and options:
-
-```powershell
-uv run scripts/endnote_workflow.py --help
-```
-
-Check the Word add-in connection without changing a document:
-
-```powershell
-uv run scripts/endnote_workflow.py probe
-```
-
-Inspect citations already present in a manuscript:
-
-```powershell
-uv run scripts/endnote_workflow.py inspect manuscript.docx --output work/inspection.json
-```
-
-Once references have been matched to the library and temporary citations have
-been placed in a new manuscript version, format them with the add-in:
-
-```powershell
-uv run scripts/endnote_workflow.py format manuscript-next.docx --style 'C:/path/to/Style.ens'
-uv run scripts/endnote_workflow.py verify manuscript-next.docx
-```
-
-`format` requires Windows, Word, EndNote and the target library open in EndNote.
-It works on a prepared manuscript; it does not determine what each manually
-typed reference number in the original document means. For the full sequence
-and input-file examples, see the [detailed workflow](references/workflow.md).
-
-`.python-version` selects Python 3.12 by default; Python 3.10 or newer is
-supported. To use an existing interpreter, run
-`uv sync --locked --python <path-to-python>`.
-Include the same `--python <path-to-python>` option in later `uv run` commands.
 
 ## Common questions
 
@@ -125,7 +71,8 @@ them using the Word add-in.
 
 **What if the add-in is disconnected or citations do not update?**
 
-Start with `probe`, then see [troubleshooting](references/troubleshooting.md).
+Ask Codex to check the Word and EndNote connection. See
+[troubleshooting](references/troubleshooting.md) for details.
 
 ## License
 
