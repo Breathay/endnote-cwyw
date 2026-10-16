@@ -1,10 +1,10 @@
-# Known failure modes and short recovery paths
+# Troubleshooting
 
 ## Imported references become Generic or titles disappear
 
-EndNote XML Journal Article is `17`; the internal type table/SQLite value `0`
-is not an interchange code. One real import with XML `0` produced unknown
-internal type `-1`, and the custom style omitted article titles.
+In EndNote XML, Journal Article has type `17`. The value `0` used inside a local
+EndNote database is different. Using it in an import file can leave a reference
+with an unknown type, causing a journal style to omit its title.
 
 Correct the import XML and validate a small native import. Do not bulk-write
 the database to compensate for a malformed import. Do not re-import into a
@@ -19,9 +19,9 @@ imports. Do not edit the user's style merely to hide an accidental internal tag.
 
 ## Author names or preprint identifiers are wrong
 
-DOI title agreement does not prove that registry authors are complete or split
-correctly. Seen examples include a middle initial becoming part of the surname,
-question marks replacing diacritics, and a full author list being truncated.
+Even when a DOI and title agree, author information may be incomplete or split
+incorrectly. Check for initials included in surnames, question marks replacing
+accented characters, and shortened author lists.
 Compare with the reviewed bibliography and the paper's publisher/arXiv header.
 Keep authors on separate lines. Do not turn `et al.` into a literal author.
 
@@ -48,7 +48,8 @@ Under a restrictive script-file policy, run the reviewed source as command text.
 The COM add-in can report `Connect=true` while its `.Object` is null. Use the
 installed `EndNote Cwyw.dotm` and real `ENFormatBibliography` macro. Do not invent
 `EndNoteFormatBibliography`, call `*Dlg` macros, or create fake ADDIN fields.
-Read-only `Probe` shows connection/template state but does not prove formatting.
+`uv run scripts/endnote_workflow.py probe` shows the connection and loaded
+templates without changing Word. A document copy is needed to test formatting.
 
 ## Macro returned, but the saved DOCX has no bibliography
 
@@ -87,4 +88,4 @@ or blind typing sequences. Leave pending modal decisions for explicit inspection
 The read-only helper recognizes the verified `refs` SQLite layout only. Export
 native EndNote XML when the engine/schema differs. Do not emulate proprietary
 collations or `EN_MAKE_SORT_KEY`, remove triggers, or infer permission to perform
-database surgery from a request to insert citations.
+database changes from a request to insert citations.

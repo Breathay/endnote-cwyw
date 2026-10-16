@@ -32,7 +32,14 @@ workspace dependency loader and follow the available documents skill's
 artifact-operation and render/inspect requirements. The helper CLI is portable;
 do not assume a particular local Python executable or package version.
 
-## Non-obvious invariants
+Run `uv sync --locked` from the repository or installed skill directory, then
+use `uv run scripts/endnote_workflow.py ...` or `uv run scripts/install_skill.py`.
+Dependencies are defined in `pyproject.toml` and pinned in `uv.lock`. When a
+bundled Python is required by the host, select it with
+`uv sync --locked --python <resolved-python-path>` and use the same interpreter
+with `uv run --python <resolved-python-path> ...`.
+
+## Reference details
 
 - EndNote XML uses `<ref-type name="Journal Article">17</ref-type>`.
   The local SQLite Journal Article value `0` belongs to a different namespace.
@@ -75,9 +82,10 @@ The installed output-style file must exist. Use its exact name; preserve an
 existing document's `EN.Layout` preferences except for a requested style change.
 Do not redistribute a user's custom `.ens` file with this skill.
 
-Run `scripts/endnote_word.ps1 -Action Probe` to inspect the live connection
-without modifying Word. Run `-Action Format` only on the authorized new output.
-The script uses Windows PowerShell 5.1 for Word COM and the real macro
+Run `uv run scripts/endnote_workflow.py probe` to inspect the live connection
+without modifying Word. Use `format <new-output.docx> --style <installed.ens>`
+only on the authorized new output. Both commands call `scripts/endnote_word.ps1`,
+which uses Windows PowerShell 5.1 for Word COM and the real macro
 `ENFormatBibliography`. It never quits the user's applications.
 
 Macro return does not prove completion. Require a non-empty native bibliography,
@@ -90,7 +98,7 @@ When UI is needed, use the available computer-use skill and current window
 observations. Re-select windows after an EndNote restart: old handles can point
 to obsolete frames with identical titles. Do not replay recorded coordinates.
 
-## Acceptance
+## Check the result
 
 Use `verify --audit ...` to check the original fingerprint, planned citation
 identities, non-citation prose, native fields, unresolved markers, and embedded

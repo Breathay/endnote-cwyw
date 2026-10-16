@@ -1,190 +1,133 @@
-# EndNote CWYW Skill
+# EndNote CWYW
 
 [简体中文](README.zh-CN.md) · [Skill instructions](SKILL.md) · [MIT license](LICENSE)
 
-A reusable Codex skill and small command-line toolkit for moving manuscript
-references into EndNote and inserting **real, editable Cite While You Write
-citations in Microsoft Word**.
+Import manuscript references into EndNote and replace manually typed citations
+with citations you can keep updating in Word. You can then add papers, reorder
+citations or switch journal styles using the EndNote add-in, with the
+bibliography updated alongside them.
 
-It turns a fragile sequence of ad hoc imports, manual numbering and repeated
-UI attempts into a checked workflow:
+This is a Codex skill for converting a whole manuscript or adding a few missing
+citations. It keeps existing EndNote citations and saves changes in a new Word
+version, leaving the original manuscript in place.
 
-```text
-Reviewed references → reconcile library → import missing records
-                    → map real record IDs → prepare a new DOCX
-                    → native CWYW formatting → verify and render
-```
+## Before you start
 
-The toolkit prepares data and verifies results. Native EndNote imports the
-records; the installed Word CWYW plugin creates the citation and bibliography
-fields. This is not an EndNote replacement or a library-free field generator.
+You need Windows, desktop Microsoft Word and EndNote, with the Cite While You
+Write (CWYW) add-in enabled in Word. Have your manuscript, target EndNote library
+and installed output style ready. Custom `.ens` styles work too.
 
-## What is included
+To install the skill, you also need Git and
+[uv](https://docs.astral.sh/uv/getting-started/installation/). The `uv run`
+commands below set up Python and the required dependencies for you. Dependencies
+are declared in `pyproject.toml`, with their versions recorded in `uv.lock`.
 
-- A discoverable Agent Skill covering new libraries, manual-reference conversion,
-  additional citations in existing manuscripts, captions and custom output styles.
-- A Python CLI for DOCX inspection, normalized EndNote XML export, duplicate-aware
-  library mapping, exact-range edits and native-field verification.
-- A Windows PowerShell bridge for connection probing and native
-  `ENFormatBibliography` execution, with completion checks before saving.
-- Synthetic examples, offline tests, cross-platform CI and troubleshooting notes
-  drawn from an actual EndNote 20/Word workflow.
+## Install
 
-The repository contains no manuscripts, personal EndNote databases, credentials,
-publisher PDFs, or custom `.ens` style files.
-
-## Requirements
-
-- Python **3.10 or newer**.
-- `lxml` for editing modern DOCX files while preserving namespace declarations.
-  Inspection, XML export, mapping and verification use the standard library.
-- For final formatting: **Windows, desktop Microsoft Word, EndNote and its enabled
-  Cite While You Write add-in**, plus a locally installed output style.
-- Windows PowerShell 5.1, included in supported Windows installations. The bridge
-  can be invoked from PowerShell 7 and re-enters 5.1 automatically for Word COM.
-
-Native integration was verified with EndNote 20 and 64-bit Word. Offline tests
-do not establish compatibility with every EndNote/Word release. Probe and smoke
-test a different native environment before a bulk operation.
-
-## Install as a personal Codex skill
+Run these commands in a terminal:
 
 ```powershell
 git clone https://github.com/Breathay/endnote-cwyw.git
 cd endnote-cwyw
-python -m pip install -r requirements.txt
-python scripts/install_skill.py
+uv sync --locked
+uv run scripts/install_skill.py
 ```
 
-The installer copies the skill to `$CODEX_HOME/skills/endnote-cwyw`, or
-`~/.codex/skills/endnote-cwyw` when `CODEX_HOME` is unset. It does not change global
-settings. To update an existing installation, use `--replace`; the previous
-skill is backed up outside the discovery directory, and no files are deleted.
+The default location is `~/.codex/skills/endnote-cwyw`. If you have set
+`CODEX_HOME`, the installer uses its `skills/endnote-cwyw` directory instead.
+
+To update, run the following from the repository directory. The installer backs
+up your previously installed skill first.
 
 ```powershell
-python scripts/install_skill.py --replace
+git pull --ff-only
+uv sync --locked
+uv run scripts/install_skill.py --replace
 ```
 
-Example request:
+## Use it in Codex
 
-> Use $endnote-cwyw to import this manuscript's references into my EndNote
-> library and create the next Word version using my installed output style.
+Tell Codex which manuscript, library and style to use. For example:
 
-中文也可以：
+> Use $endnote-cwyw to import the references from manuscript-v12.docx into my
+> EndNote library. Save a v13 Word copy and insert citations using my installed
+> custom Nature style. Put figure-caption citations after the relevant
+> descriptions instead of listing them in a separate Sources paragraph.
 
-> 使用 $endnote-cwyw，把论文参考文献导入 EndNote，并在新版本 Word 中用
-> Nature 自定义样式插入可更新引文。图注引用直接放在对应描述中。
+For a smaller change:
 
-## Command-line workflow
+> Use $endnote-cwyw to add these three papers to this manuscript, which already
+> has EndNote citations.
 
-The detailed data contracts and recovery paths are in
-[workflow.md](references/workflow.md) and
-[troubleshooting.md](references/troubleshooting.md).
+The skill checks which references are already in your library and imports the
+missing ones. It then prepares a manuscript copy, uses Word's EndNote add-in to
+generate the citations and bibliography, and checks the result. Duplicate
+records or conflicting reference details are resolved before formatting.
 
-### Inspect the source and connection
+## Run with uv
+
+Most users can let Codex handle the steps. If you want to inspect a document or
+run a step yourself, use these commands from the repository directory.
+
+See the available commands and options:
 
 ```powershell
-python scripts/endnote_workflow.py inspect manuscript.docx --output work/inspection.json
-pwsh -NoProfile -File scripts/endnote_word.ps1 -Action Probe
+uv run scripts/endnote_workflow.py --help
 ```
 
-`Probe` is read-only: it does not launch Word, invoke a macro or modify documents.
-If PowerShell 7 is unavailable, invoke the bridge using Windows PowerShell 5.1
-subject to the machine's existing script policy. The workflow reference explains
-source-text invocation without changing that policy.
-
-### Normalize and map references
-
-Create reviewed `work/records.json` using the contract in
-[examples/records.json](examples/records.json). The example records are fictional.
-Keep full authors as separate `Family, Given` strings and keep source IDs outside
-EndNote's printable `Label` and `Short Title` fields.
+Check the Word add-in connection without changing a document:
 
 ```powershell
-python scripts/endnote_workflow.py map work/records.json --library Library.enl --output work/mapping-before.json --missing-xml work/missing.xml
+uv run scripts/endnote_workflow.py probe
 ```
 
-Import missing records once through native EndNote:
-**File → Import → File → EndNote generated XML**. Then map again:
+Inspect citations already present in a manuscript:
 
 ```powershell
-python scripts/endnote_workflow.py map work/records.json --library Library.enl --output work/mapping.json
+uv run scripts/endnote_workflow.py inspect manuscript.docx --output work/inspection.json
 ```
 
-A native EndNote XML export can replace `Library.enl` as the read-only mapping
-source. Resolve missing and ambiguous records before preparing the manuscript.
-The helper never writes to the EndNote database.
-
-The bundled exporter supports the verified **Journal Article XML type 17** only.
-Other reference types require validated native EndNote/RIS mappings. Internal
-database type IDs are not interchangeable with XML type IDs.
-
-### Prepare a new version
-
-Use the inspected hash and paragraph offsets to create an exact edit plan,
-as described in [workflow.md](references/workflow.md#4-plan-exact-replacements-in-a-new-version).
+Once references have been matched to the library and temporary citations have
+been placed in a new manuscript version, format them with the add-in:
 
 ```powershell
-python scripts/endnote_workflow.py prepare manuscript.docx --output manuscript-next.docx --mapping work/mapping.json --plan work/plan.json --audit work/prepare-audit.json
+uv run scripts/endnote_workflow.py format manuscript-next.docx --style 'C:/path/to/Style.ens'
+uv run scripts/endnote_workflow.py verify manuscript-next.docx
 ```
 
-The source is preserved, and an existing output is never overwritten. The helper
-keeps embedded images and unrelated package parts. It rejects replacements
-inside existing fields or across uncertain field/drawing boundaries; use native
-Word editing for these operations. Existing live citations elsewhere are retained.
+`format` requires Windows, Word, EndNote and the target library open in EndNote.
+It works on a prepared manuscript; it does not determine what each manually
+typed reference number in the original document means. For the full sequence
+and input-file examples, see the [detailed workflow](references/workflow.md).
 
-### Format and verify
+`.python-version` selects Python 3.12 by default; Python 3.10 or newer is
+supported. To use an existing interpreter, run
+`uv sync --locked --python <path-to-python>`.
+Include the same `--python <path-to-python>` option in later `uv run` commands.
 
-With the intended library open in EndNote:
+## Common questions
 
-```powershell
-pwsh -NoProfile -File scripts/endnote_word.ps1 -Action Format -Document manuscript-next.docx -StylePath 'C:/path/to/installed/Style.ens' -ExpectedCitations 25 -ExpectedReferences 18 -PdfPath work/final.pdf
-python scripts/endnote_workflow.py verify manuscript-next.docx --audit work/prepare-audit.json --expected-citations 25 --expected-references 18 --output work/verification.json
-```
+**Can I keep editing the citations in Word?**
 
-Replace the example counts with the plan's actual counts. A citation count means
-**citation groups**, not the number of papers inside those groups.
+Yes. The installed EndNote add-in creates them, so you can continue adding
+references and updating styles through the add-in.
 
-The bridge waits for a stable, non-empty native bibliography and zero temporary
-markers before saving. The verifier checks identities and, for numbered styles,
-displayed citation numbers against the bibliography. With an audit it also
-checks source preservation, planned prose, figure bytes and table/figure counts.
+**Can I use my own journal style?**
 
-Finally, render the saved document and inspect all pages. Native application
-formatting and visual layout cannot be proven by offline unit tests alone.
+Yes. Provide the installed `.ens` file, including a Nature style you have
+customized yourself.
 
-## Important boundaries
+**What about books and conference papers?**
 
-- This skill does not redistribute or install EndNote, Word or `.ens` styles.
-- It does not fabricate native citation fields or edit SQLite records, triggers,
-  proprietary collations or sort keys.
-- External metadata is enrichment, not unquestioned authority: author splitting,
-  Unicode, preprint versions and registry completeness can be wrong.
-- Captions and image credits change only when requested; citations do not grant
-  figure-reuse rights.
-- The macro polling timeout begins after the COM macro returns. If a native
-  dialog blocks the macro, inspect it instead of launching another format run.
-- Keep an `.enl` file with its same-named `.Data` folder when moving a library.
+The included preparation and matching tools currently handle journal articles.
+For books and conference papers, organize the records in EndNote and insert
+them using the Word add-in.
 
-## Tests and development
+**What if the add-in is disconnected or citations do not update?**
 
-```powershell
-python -m unittest discover -s tests -v
-```
-
-The offline suite checks XML type encoding, author validation, real ID mapping,
-duplicate/conflict handling, read-only database access, split-run preservation,
-existing-field protection, namespace preservation, native-field parsing and
-display-number mismatches. Synthetic field fixtures exercise parsing only;
-they are not valid substitutes for CWYW-generated user documents.
-
-CI runs these tests on Linux and Windows and parses the PowerShell bridge on
-Windows without requiring Office or an EndNote license. Changes to the native
-bridge should also receive a separate authorized native smoke test on a copied
-document. Keep all real manuscripts and libraries out of commits.
+Start with `probe`, then see [troubleshooting](references/troubleshooting.md).
 
 ## License
 
-[MIT](LICENSE), copyright © 2026 Breathay. EndNote and Microsoft Word remain
-products of their respective owners; their software and custom styles are not
-covered by this repository's license.
+This project is licensed under [MIT](LICENSE). Word, EndNote and journal style
+files are supplied separately and are not included in this repository.

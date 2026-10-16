@@ -1,4 +1,4 @@
-# End-to-end workflow and data contracts
+# Detailed workflow
 
 ## Environment and scope
 
@@ -9,11 +9,16 @@ for prefix-safe editing of modern DOCX files with `mc:Ignorable` declarations.
 The PowerShell bridge automatically re-enters Windows PowerShell 5.1 from
 PowerShell 7; it does not change execution policy.
 
-Confirmed implementation baseline: EndNote 20 and 64-bit Word with
-`EndNote.WordAddin.Connect`, `EndNote Cwyw.dotm`, and `ENFormatBibliography`.
-Other versions require a connection probe and an isolated native smoke test.
-An existing style such as `Nature Biotechnology_shi.ens` is a user choice, not
-a mandatory style for unrelated manuscripts.
+The Word connection has been tested with EndNote 20 and 64-bit Word. If using
+another version, check the connection and try a few citations in a document
+copy before processing the full manuscript. Choose the installed output style
+that the manuscript needs, including a custom `.ens` style if requested.
+
+Run `uv sync --locked` from the repository or installed skill directory before
+using the commands below. `pyproject.toml` declares the dependencies, `uv.lock`
+records the resolved versions, and `.python-version` selects Python 3.12 by
+default. Python 3.10+ is supported. To use a particular Python installation,
+add `--python <path-to-python>` to both `uv sync` and `uv run`.
 
 Before editing, record source and intended output paths, library, existing live
 citations, requested style and any caption changes. Infer these from the user's
@@ -23,20 +28,21 @@ Do not restart the user's Word or EndNote to discover paths.
 ## 1. Inspect
 
 ```powershell
-python scripts/endnote_workflow.py inspect manuscript.docx --output work/inspection.json
-powershell -NoProfile -File scripts/endnote_word.ps1 -Action Probe
+uv run scripts/endnote_workflow.py inspect manuscript.docx --output work/inspection.json
+uv run scripts/endnote_workflow.py probe
 ```
 
 The inspection includes paragraph indexes/text, source hash, field inventories,
 traveling-record identities, image parts and table counts. All are read-only.
 
-If script-file execution is restricted, do not change policy. Use a source-text
-invocation with properly quoted arguments, or invoke from PowerShell 7, whose
-bridge passes the source text to Windows PowerShell 5.1.
+`probe` and `format` call the included PowerShell bridge through Windows
+PowerShell 5.1. They pass the script as command text, so no change to the system
+script execution policy is needed. The standalone `endnote_word.ps1` remains
+available for existing PowerShell workflows.
 
 ## 2. Normalize reviewed references
 
-`examples/records.json` is a synthetic data-contract example. Required fields:
+`examples/records.json` shows the input format using fictional articles:
 
 ```json
 {
@@ -72,7 +78,7 @@ number of times. Avoid fetching all metadata again on the next retry.
 ## 3. Reconcile and import only missing references
 
 ```powershell
-python scripts/endnote_workflow.py map work/records.json --library Library.enl --output work/mapping-before.json --missing-xml work/missing.xml
+uv run scripts/endnote_workflow.py map work/records.json --library Library.enl --output work/mapping-before.json --missing-xml work/missing.xml
 ```
 
 `map` matches a unique DOI first, then an exact normalized title and year.
@@ -93,7 +99,7 @@ few representative records, including Unicode authors and a preprint, before
 importing a large set.
 
 ```powershell
-python scripts/endnote_workflow.py map work/records.json --library Library.enl --output work/mapping.json
+uv run scripts/endnote_workflow.py map work/records.json --library Library.enl --output work/mapping.json
 ```
 
 Proceed only when `missing` and `conflicts` are empty. These are the actual IDs
@@ -127,7 +133,7 @@ paragraph is removed, do not also replace text in it. Convert ranges such as
 or correction qualifiers separate from the temporary citation.
 
 ```powershell
-python scripts/endnote_workflow.py prepare manuscript.docx --output manuscript-next.docx --mapping work/mapping.json --plan work/plan.json --audit work/prepare-audit.json
+uv run scripts/endnote_workflow.py prepare manuscript.docx --output manuscript-next.docx --mapping work/mapping.json --plan work/plan.json --audit work/prepare-audit.json
 ```
 
 The helper refuses to overwrite the source or any existing output. It rejects
@@ -143,23 +149,24 @@ The prepared document is not finished. Its placeholders resemble
 Ensure the target library is open in EndNote and the style file exists.
 
 ```powershell
-pwsh -NoProfile -File scripts/endnote_word.ps1 -Action Format -Document manuscript-next.docx -StylePath 'C:/path/to/installed/Style.ens' -ExpectedCitations 25 -ExpectedReferences 18 -PdfPath work/final.pdf
+uv run scripts/endnote_workflow.py format manuscript-next.docx --style 'C:/path/to/installed/Style.ens' --expected-citations 25 --expected-references 18 --pdf work/final.pdf
 ```
 
-`ExpectedCitations` counts groups, not individual cited papers. `ExpectedReferences`
+`--expected-citations` counts groups, not individual cited papers. `--expected-references`
 counts traveling-library record IDs; the Python verifier additionally checks
 distinct identities and, for numbered styles, the bibliography entries/numbers.
 Supply the counts calculated from the actual plan, not example constants.
 
 The bridge preserves an existing `EN.Layout`, selects the exact installed style,
 calls `ENFormatBibliography`, waits for a stable non-empty bibliography and saves.
-It leaves Word and EndNote open. A timeout or modal is a diagnostic outcome,
-not permission to re-run macros or terminate applications.
+It leaves Word and EndNote open. `--timeout-seconds` controls the wait after the
+macro returns (5–300 seconds, default 60). If Word is waiting for a dialog,
+inspect that dialog before trying the command again.
 
 ## 6. Verify and render
 
 ```powershell
-python scripts/endnote_workflow.py verify manuscript-next.docx --audit work/prepare-audit.json --expected-citations 25 --expected-references 18 --output work/verification.json
+uv run scripts/endnote_workflow.py verify manuscript-next.docx --audit work/prepare-audit.json --expected-citations 25 --expected-references 18 --output work/verification.json
 ```
 
 For an already formatted manuscript with no edit plan, omit `--audit` and use
@@ -175,14 +182,28 @@ Word PDF and inspect every page. A non-empty PDF or extracted text is not a
 visual check. After a small final edit, compare rendered-page hashes and inspect
 changed pages again. Deliver only requested final artifacts, keeping QA internal.
 
-## References
+## Running the tests
+
+From the repository directory:
+
+```powershell
+uv sync --locked
+uv run --locked python -B -m unittest discover -s tests -v
+```
+
+Tests use fictional references and temporary documents. They do not edit an
+open manuscript or personal EndNote library. CI also checks the uv entry points
+on Windows and Linux. Changes to Word formatting still need a trial on a copy
+with Word and EndNote installed, followed by a page-by-page visual check.
+
+## Further reading
 
 - [Clarivate XML DTD](https://support.clarivate.com/Endnote/s/article/EndNote-XML-Document-Type-Definition?language=en_US)
 - [Native EndNote import](https://docs.endnote.com/docs/endnote/2025/v1/windows/en/content/08import/import_text_files-win.htm)
 - [Native Word CWYW instructions](https://docs.endnote.com/docs/endnote/2025/v1/windows/en/content/09word/basic_instructions1.htm)
 - [Clarivate RSServices API background](https://docs.endnote.com/docs/endnote/2025/v1/windows/en/content/appendices/apis_and_plug-ins.htm)
 - [Open-source macro implementation reference](https://github.com/felimet/endnote-for-word)
+- [Working with uv projects](https://docs.astral.sh/uv/guides/projects/)
 
-The helpers in this repository are independently implemented. These links
-provide protocol and interoperability context; no external helper is executed
-or vendored automatically.
+The included tools were written for this project. These links explain the
+formats and application interfaces they use.
